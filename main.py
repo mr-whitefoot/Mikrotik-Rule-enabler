@@ -1,8 +1,12 @@
 from dotenv import load_dotenv
+from flask import Flask, request, jsonify
+from flask_cors import CORS
 import requests, os
 
-
 load_dotenv()
+
+app = Flask(__name__, static_folder="static", static_url_path="")
+CORS(app)
 
 host = os.getenv("MT_HOST")
 user = os.getenv("MT_USER")
@@ -28,48 +32,31 @@ def toggle_rule(rule_id, enable):
     )
     return response.status_code
 
-def print_rules(rules):
-    print("\n📋 Список правил маршрутизации:")
-    print("-" * 50)
-    for i, rule in enumerate(rules):
-        status = "✅ включено" if rule.get("disabled") != "true" else "❌ выключено"
-        comment = rule.get("comment", "без комментария")
-        src = rule.get("src-address","")
-        dst = rule.get("dst-address", "")
-        table = rule.get("table", "")
-        print(f"{i + 1}. [{status}] {comment} | src: {src} | dst: {dst} | table: {table}")
-    print("-" * 50)
 
-# Основной цикл
-while True:
+# ── ROUTES ──────────────────────────────────────
+
+@app.route("/")
+def index():
+    return app.send_static_file("index.html")
+
+
+@app.route("/api/rules", methods=["POST"])
+def api_rules():
     rules = get_rules()
-    print_rules(rules)
+    return jsonify({"rules": rules})
 
-    print("\nВведите номер правила (или 'q' для выхода):")
-    choice = input("> ").strip()
 
-    if choice.lower() == "q":
-        print("Выход...")
-        break
+@app.route("/api/rule/toggle", methods=["POST"])
+def api_toggle():
+    data   = request.get_json()
+    rule_id = data.get("id")
+    enable  = data.get("enable", True)
+    status  = toggle_rule(rule_id, enable)
+    ok = status in (200, 204)
+    return jsonify({"ok": ok, "status": status})
 
-    if not choice.isdigit() or int(choice) < 1 or int(choice) > len(rules):
-        print("❌ Неверный номер, попробуй снова")
-        continue
 
-    rule = rules[int(choice) - 1]
-    rule_id = rule.get(".id")
-    is_disabled = rule.get("disabled") == "true"
+# ── START ────────────────────────────────────────
 
-    print(f"\nПравило: {rule.get('comment', rule_id)}")
-    print(f"Текущий статус: {'❌ выключено' if is_disabled else '✅ включено'}")
-    print("Что сделать? (1 - включить, 2 - выключить, Enter - отмена):")
-    action = input("> ").strip()
-
-    if action == "1":
-        status = toggle_rule(rule_id, enable=True)
-        print(f"✅ Включено (код ответа: {status})")
-    elif action == "2":
-        status = toggle_rule(rule_id, enable=False)
-        print(f"❌ Выключено (код ответа: {status})")
-    else:
-        print("Отмена")
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=8080)
