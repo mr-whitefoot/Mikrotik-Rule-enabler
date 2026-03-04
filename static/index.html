@@ -410,31 +410,7 @@
 </head>
 <body>
 
-<!-- CONNECT MODAL -->
-<div class="overlay" id="modal">
-  <div class="modal">
-    <h2>Подключение к MikroTik</h2>
-    <p>Параметры передаются на бэкенд и используются для запросов к RouterOS REST API</p>
-    <div class="modal-flds">
-      <div class="cfg-field">
-        <label>Адрес роутера</label>
-        <input id="m-host" placeholder="192.168.88.1">
-      </div>
-      <div class="cfg-field">
-        <label>Пользователь</label>
-        <input id="m-user" placeholder="vpnapi">
-      </div>
-      <div class="cfg-field">
-        <label>Пароль</label>
-        <input id="m-pass" type="password" placeholder="••••••••">
-      </div>
-    </div>
-    <div class="modal-acts">
-      <button class="btn" onclick="closeModal()">Отмена</button>
-      <button class="btn prim" onclick="connectNow()">Подключиться</button>
-    </div>
-  </div>
-</div>
+
 
 <!-- HEADER -->
 <header>
@@ -448,7 +424,6 @@
       <span id="statusTxt">offline</span>
     </div>
     <button class="icon-btn" id="refreshBtn" title="Обновить" onclick="loadRules()">↻</button>
-    <button class="icon-btn" title="Подключение" onclick="openModal()">⚙</button>
   </div>
 </header>
 
@@ -457,7 +432,6 @@
   <div class="tabs">
     <button class="tab active" onclick="switchTab('rules',this)">Правила</button>
     <button class="tab" onclick="switchTab('vis',this)">Видимость</button>
-    <button class="tab" onclick="switchTab('cfg',this)">Настройки</button>
     <button class="tab" onclick="switchTab('log',this)">Лог</button>
   </div>
 
@@ -503,54 +477,6 @@
     </div>
   </div>
 
-  <!-- SETTINGS -->
-  <div class="panel" id="panel-cfg">
-    <div class="sec">
-      <div class="sec-title">Подключение</div>
-      <div class="cfg-grid">
-        <div class="cfg-field" style="grid-column:1/-1">
-          <label>Адрес роутера</label>
-          <input id="c-host" placeholder="192.168.88.1">
-        </div>
-        <div class="cfg-field">
-          <label>Пользователь</label>
-          <input id="c-user" placeholder="vpnapi">
-        </div>
-        <div class="cfg-field">
-          <label>Пароль</label>
-          <input id="c-pass" type="password" placeholder="••••••••">
-        </div>
-      </div>
-    </div>
-    <div class="sec">
-      <div class="sec-title">Поведение</div>
-      <div class="cfg-grid">
-        <div class="cfg-field">
-          <label>Авто-обновление</label>
-          <select id="c-ref">
-            <option value="0">Отключено</option>
-            <option value="15">15 сек</option>
-            <option value="30" selected>30 сек</option>
-            <option value="60">1 мин</option>
-            <option value="300">5 мин</option>
-          </select>
-        </div>
-        <div class="cfg-field">
-          <label>Фильтр по умолчанию</label>
-          <select id="c-def">
-            <option value="all">Все правила</option>
-            <option value="on">Только активные</option>
-            <option value="off">Только выключенные</option>
-          </select>
-        </div>
-      </div>
-    </div>
-    <div class="cfg-actions">
-      <button class="btn" onclick="cfgReset()">Сбросить</button>
-      <button class="btn prim" onclick="cfgSave()">Сохранить</button>
-    </div>
-  </div>
-
   <!-- LOG -->
   <div class="panel" id="panel-log">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.8rem">
@@ -566,43 +492,17 @@
 
 <script>
 // ── STATE ──
-let cfg = { host:'', user:'', pass:'', refresh:30 };
 let rules  = [];
 let visMap = {};
 let activeF = 'all';
 let logs   = [];
-let timer  = null;
 
 // ── BOOT ──
 window.addEventListener('DOMContentLoaded', () => {
-  loadCfg(); loadVis(); syncCfgUI();
-  if (cfg.host && cfg.user && cfg.pass) loadRules();
-  else openModal();
+  loadVis();
+  loadRules();
 });
 
-// ── CONFIG ──
-function loadCfg() {
-  try { cfg = { ...cfg, ...JSON.parse(localStorage.getItem('mtr_cfg') || '{}') }; } catch(e){}
-}
-function saveCfgStore() { localStorage.setItem('mtr_cfg', JSON.stringify(cfg)); }
-
-function syncCfgUI() {
-  sv('c-host', cfg.host); sv('c-user', cfg.user); sv('c-pass', cfg.pass); sv('c-ref', cfg.refresh);
-  sv('m-host', cfg.host); sv('m-user', cfg.user); sv('m-pass', cfg.pass);
-}
-
-function cfgSave() {
-  cfg.host = gv('c-host'); cfg.user = gv('c-user');
-  cfg.pass = gv('c-pass'); cfg.refresh = parseInt(gv('c-ref')) || 0;
-  saveCfgStore(); syncCfgUI(); startTimer();
-  toast('Настройки сохранены', 'ok'); addLog('Настройки обновлены', 'info');
-}
-
-function cfgReset() {
-  localStorage.removeItem('mtr_cfg');
-  cfg = { host:'', user:'', pass:'', refresh:30 };
-  syncCfgUI(); toast('Настройки сброшены', 'inf');
-}
 
 // ── VISIBILITY ──
 function loadVis() {
@@ -632,12 +532,11 @@ async function callAPI(path, body) {
 
 // ── LOAD RULES ──
 async function loadRules() {
-  if (!cfg.host || !cfg.user || !cfg.pass) { openModal(); return; }
   const btn = document.getElementById('refreshBtn');
   btn.classList.add('spin');
   showSkels();
   try {
-    const data = await callAPI('/api/rules', { host: cfg.host, user: cfg.user, pass: cfg.pass });
+    const data = await callAPI('/api/rules', { });
     // Фильтруем: только правила с непустым комментарием
     rules = (data.rules || []).filter(r => r.comment && r.comment.trim() !== '');
     setOnline(true);
@@ -659,7 +558,7 @@ async function toggleRule(id, enable, cb) {
   wrap.classList.add('busy');
   card.style.opacity = '0.55';
   try {
-    await callAPI('/api/rule/toggle', { host: cfg.host, user: cfg.user, pass: cfg.pass, id, enable });
+    await callAPI('/api/rule/toggle', { id, enable });
     const r = rules.find(x => (x['.id'] || x.id) === id);
     if (r) r.disabled = enable ? 'false' : 'true';
     card.classList.toggle('on',  enable);
@@ -803,15 +702,6 @@ function switchTab(name, el) {
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
   el.classList.add('active');
   document.getElementById('panel-' + name).classList.add('active');
-}
-
-// ── MODAL ──
-function openModal()  { syncCfgUI(); document.getElementById('modal').classList.remove('hidden'); }
-function closeModal() { document.getElementById('modal').classList.add('hidden'); }
-function connectNow() {
-  cfg.host = gv('m-host'); cfg.user = gv('m-user'); cfg.pass = gv('m-pass');
-  saveCfgStore(); syncCfgUI(); closeModal();
-  loadRules(); startTimer();
 }
 
 // ── TIMER ──
