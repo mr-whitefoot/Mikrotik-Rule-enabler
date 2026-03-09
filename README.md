@@ -77,8 +77,8 @@
 1. **Настройка переменных окружения (Envlist):**
    ```bash
    /container/envs/add name=mikrotik-route key=MT_HOST value=<ip_роутера>
-   /container/envs/add name=mikrotik-route key=MT_USER value=vpnapi
-   /container/envs/add name=mikrotik-route key=MT_PASS value=yourpassword
+   /container/envs/add name=mikrotik-route key=MT_USER value=api
+   /container/envs/add name=mikrotik-route key=MT_PASS value=api_user_password
    ```
 
 2. **Импорт и установка контейнера:**
@@ -96,7 +96,7 @@
 
 1. **Настройка Firewall (доступ только из LAN):**
    ```bash
-   /ip/firewall/filter/add chain=forward dst-port=8080 src-address=192.168.88.0/24 protocol=tcp action=accept comment="Allow LAN to container 8080"
+   /ip/firewall/filter/add chain=forward dst-port=8080 src-address=<ip_роутера>/24 protocol=tcp action=accept comment="Allow LAN to container 8080"
    /ip/firewall/filter/add chain=forward dst-port=8080 protocol=tcp action=drop comment="Drop WAN to container 8080"
    ```
 
@@ -108,7 +108,7 @@
 
 3. **Маршрутизация:**
    ```bash
-   /ip/route/add dst-address=10.0.0.0/24 gateway=172.17.0.1
+   /ip/route/add dst-address=<сеть_роутера>/24 gateway=172.17.0.1
    ```
 
 ---
